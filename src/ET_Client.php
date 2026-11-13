@@ -519,7 +519,7 @@ class ET_Client extends SoapClient
 	 * @param integer $one_way Future use
 	 * @return string Soap web service request result
 	 */			
-	function __doRequest(string $request, string $location, string $action, int $version, bool $oneWay = false): ?string
+	function __doRequest(string $request, string $location, string $action, int $version, bool $oneWay = false, ?string $uriParserClass = null): ?string
 	{
 		$doc = new DOMDocument();
 		$doc->loadXML($request);
@@ -604,16 +604,30 @@ class ET_Client extends SoapClient
 		$header->appendChild($authnode);
 	}
 
+	/**
+	* Return the tenantTokens key for $tenantKey, creating its empty slot if needed.
+	* A null key maps to '', where PHP stored it before 8.5 deprecated null array offsets.
+	* Getters pass $fallBackToClientTenant to try the client's own tenant key first.
+	*/
+	private function tenantTokenKey($tenantKey, $fallBackToClientTenant = false)
+	{
+		if ($fallBackToClientTenant && $tenantKey == null) {
+			$tenantKey = $this->tenantKey;
+		}
+		$tenantKey = (string) $tenantKey;
+		if (!isset($this->tenantTokens[$tenantKey])) {
+			$this->tenantTokens[$tenantKey] = array();
+		}
+		return $tenantKey;
+	}
+
 	/** 
 	* Get the authentication token.
 	* @return string 
 	*/	
 	public function getAuthToken($tenantKey = null) 
 	{
-		$tenantKey = $tenantKey == null ? $this->tenantKey : $tenantKey;
-		if ($this->tenantTokens[$tenantKey] == null) {
-			$this->tenantTokens[$tenantKey] = array();
-		}		
+		$tenantKey = $this->tenantTokenKey($tenantKey, true);
 		return isset($this->tenantTokens[$tenantKey]['authToken']) 
 			? $this->tenantTokens[$tenantKey]['authToken']
 			: null;
@@ -627,9 +641,7 @@ class ET_Client extends SoapClient
 	*/
 	function setAuthToken($tenantKey, $authToken, $authTokenExpiration) 
 	{
-		if ($this->tenantTokens[$tenantKey] == null) {
-			$this->tenantTokens[$tenantKey] = array();
-		}
+		$tenantKey = $this->tenantTokenKey($tenantKey);
 		$this->tenantTokens[$tenantKey]['authToken'] = $authToken;
 		$this->tenantTokens[$tenantKey]['authTokenExpiration'] = $authTokenExpiration;
 	}
@@ -641,10 +653,7 @@ class ET_Client extends SoapClient
 	*/
 	function getAuthTokenExpiration($tenantKey) 
 	{
-		$tenantKey = $tenantKey == null ? $this->tenantKey : $tenantKey;
-		if (!isset($this->tenantTokens[$tenantKey]) || $this->tenantTokens[$tenantKey] == null) {
-			$this->tenantTokens[$tenantKey] = array();
-		}
+		$tenantKey = $this->tenantTokenKey($tenantKey, true);
 		return isset($this->tenantTokens[$tenantKey]['authTokenExpiration'])
 			? $this->tenantTokens[$tenantKey]['authTokenExpiration']
 			: null;
@@ -657,10 +666,7 @@ class ET_Client extends SoapClient
 	*/
 	function getInternalAuthToken($tenantKey) 
 	{
-		$tenantKey = $tenantKey == null ? $this->tenantKey : $tenantKey;	
-		if ($this->tenantTokens[$tenantKey] == null) {
-			$this->tenantTokens[$tenantKey] = array();
-		}
+		$tenantKey = $this->tenantTokenKey($tenantKey, true);
 		return isset($this->tenantTokens[$tenantKey]['internalAuthToken'])
 			? $this->tenantTokens[$tenantKey]['internalAuthToken']
 			: null;
@@ -672,9 +678,7 @@ class ET_Client extends SoapClient
 	* @param string $internalAuthToken
 	*/
 	function setInternalAuthToken($tenantKey, $internalAuthToken) {
-		if ($this->tenantTokens[$tenantKey] == null) {
-			$this->tenantTokens[$tenantKey] = array();
-		}	
+		$tenantKey = $this->tenantTokenKey($tenantKey);
 		$this->tenantTokens[$tenantKey]['internalAuthToken'] = $internalAuthToken;
 	}
 	
@@ -685,9 +689,7 @@ class ET_Client extends SoapClient
 	*/
 	function setRefreshToken($tenantKey, $refreshToken) 
 	{
-		if ($this->tenantTokens[$tenantKey] == null) {
-			$this->tenantTokens[$tenantKey] = array();
-		}	
+		$tenantKey = $this->tenantTokenKey($tenantKey);
 		$this->tenantTokens[$tenantKey]['refreshToken'] = $refreshToken;
 	}
 
@@ -699,10 +701,7 @@ class ET_Client extends SoapClient
 	 */
 	public function getRefreshToken($tenantKey)
 	{
-		$tenantKey = $tenantKey == null ? $this->tenantKey : $tenantKey;	
-		if ($this->tenantTokens[$tenantKey] == null) {
-			$this->tenantTokens[$tenantKey] = array();
-		}
+		$tenantKey = $this->tenantTokenKey($tenantKey, true);
 		return isset($this->tenantTokens[$tenantKey]['refreshToken']) 
 			? $this->tenantTokens[$tenantKey]['refreshToken']
 			: null;
